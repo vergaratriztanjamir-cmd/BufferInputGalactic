@@ -18,6 +18,7 @@ namespace Galactic {
 
     bool g_initialized = false;
     bool g_firstInputLogged = false;
+    bool g_playerDebugLogged = false;
 
     int g_lastMode[2] = {-1, -1};
 
@@ -83,7 +84,7 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
         auto hook = self.getHook("GJBaseGameLayer::handleButton");
 
         if (!hook) {
-            log::error("GALACTIC: Hook registration FAILED!");
+            log::error("GALACTIC: Input hook registration FAILED!");
             return;
         }
 
@@ -93,12 +94,25 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
     void handleButton(bool down, int button, bool isPlayer1) {
 
         if (down) {
+
+            if (!Galactic::g_playerDebugLogged) {
+                Galactic::g_playerDebugLogged = true;
+
+                log::info(
+                    "GALACTIC DEBUG: isPlayer1={}, P1 pointer={}, P2 pointer={}",
+                    isPlayer1,
+                    m_player1 != nullptr,
+                    m_player2 != nullptr
+                );
+            }
+
             int playerNumber = isPlayer1 ? 1 : 2;
 
             PlayerObject* playerObject =
                 isPlayer1 ? m_player1 : m_player2;
 
             if (playerObject) {
+
                 auto mode = Galactic::detectMode(playerObject);
                 int modeIndex = static_cast<int>(mode);
 
@@ -125,6 +139,12 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
                     Galactic::g_firstInputLogged = true;
                     log::info("GALACTIC: Input recorded!");
                 }
+            }
+            else {
+                log::warn(
+                    "GALACTIC: Selected player pointer is null. isPlayer1={}",
+                    isPlayer1
+                );
             }
         }
 
