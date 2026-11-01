@@ -37,7 +37,6 @@ inline bool circlesOverlap(
 ) {
     float dx = a.x - b.x;
     float dy = a.y - b.y;
-
     float radiusSum = radiusA + radiusB;
 
     return (dx * dx + dy * dy) <=
@@ -52,6 +51,7 @@ struct PlayerSnapshot {
     float velocityY = 0.0f;
 
     bool valid = false;
+    bool velocityValid = false;
 };
 
 class PhysicsTracker {
@@ -60,25 +60,38 @@ private:
     PlayerSnapshot current[2];
 
 public:
-    void capture(int playerIndex, cocos2d::CCPoint position) {
-        if (playerIndex < 0 || playerIndex > 1) return;
+    bool capture(
+        int playerIndex,
+        cocos2d::CCPoint position,
+        float deltaTime
+    ) {
+        if (playerIndex < 0 || playerIndex > 1) {
+            return false;
+        }
 
         PlayerSnapshot next;
+
         next.x = position.x;
         next.y = position.y;
         next.valid = true;
 
-        if (current[playerIndex].valid) {
+        if (current[playerIndex].valid &&
+            deltaTime > 0.0001f) {
+
             previous[playerIndex] = current[playerIndex];
 
             next.velocityX =
-                next.x - previous[playerIndex].x;
+                (next.x - previous[playerIndex].x) / deltaTime;
 
             next.velocityY =
-                next.y - previous[playerIndex].y;
+                (next.y - previous[playerIndex].y) / deltaTime;
+
+            next.velocityValid = true;
         }
 
         current[playerIndex] = next;
+
+        return next.velocityValid;
     }
 
     const PlayerSnapshot& get(int playerIndex) const {
@@ -89,6 +102,16 @@ public:
         }
 
         return current[playerIndex];
+    }
+
+    const PlayerSnapshot& getPrevious(int playerIndex) const {
+        static const PlayerSnapshot empty{};
+
+        if (playerIndex < 0 || playerIndex > 1) {
+            return empty;
+        }
+
+        return previous[playerIndex];
     }
 
     void reset() {
