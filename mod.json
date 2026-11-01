@@ -6,7 +6,7 @@
   },
   "id": "galactic.inputbuffer",
   "name": "Galactic",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "developer": "Galactic",
   "description": "Predictive input and pathfinding for Android64.",
   "tags": [
