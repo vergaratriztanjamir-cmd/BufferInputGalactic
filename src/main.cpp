@@ -3,6 +3,7 @@
 #include <Geode/modify/GJBaseGameLayer.hpp>
 
 #include <chrono>
+#include <cmath>
 
 #include "ModeSettings.hpp"
 #include "Physics.hpp"
@@ -22,6 +23,7 @@ namespace Galactic {
     bool g_initialized = false;
     bool g_firstInputLogged = false;
     bool g_firstProcessedLogged = false;
+
     bool g_firstVelocityLogged[2] = {false, false};
 
     int g_lastMode[2] = {-1, -1};
@@ -107,6 +109,7 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
 
         uint64_t now = Galactic::getTimestampMs();
 
+        // Player 1 velocity tracking.
         if (m_player1) {
             Galactic::g_physicsTracker.capture(
                 0,
@@ -117,9 +120,14 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
             const auto& snapshot =
                 Galactic::g_physicsTracker.get(0);
 
-            if (snapshot.velocityValid &&
-                !Galactic::g_firstVelocityLogged[0]) {
-
+            if (
+                snapshot.velocityValid &&
+                !Galactic::g_firstVelocityLogged[0] &&
+                (
+                    std::abs(snapshot.velocityX) > 0.01f ||
+                    std::abs(snapshot.velocityY) > 0.01f
+                )
+            ) {
                 Galactic::g_firstVelocityLogged[0] = true;
 
                 log::info(
@@ -130,6 +138,7 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
             }
         }
 
+        // Player 2 velocity tracking.
         if (m_player2) {
             Galactic::g_physicsTracker.capture(
                 1,
@@ -140,9 +149,14 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
             const auto& snapshot =
                 Galactic::g_physicsTracker.get(1);
 
-            if (snapshot.velocityValid &&
-                !Galactic::g_firstVelocityLogged[1]) {
-
+            if (
+                snapshot.velocityValid &&
+                !Galactic::g_firstVelocityLogged[1] &&
+                (
+                    std::abs(snapshot.velocityX) > 0.01f ||
+                    std::abs(snapshot.velocityY) > 0.01f
+                )
+            ) {
                 Galactic::g_firstVelocityLogged[1] = true;
 
                 log::info(
@@ -153,8 +167,10 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
             }
         }
 
+        // Expire old recorded inputs.
         Galactic::g_inputBuffer.update(now);
 
+        // Process remaining recorded inputs.
         Galactic::ProcessedInput result;
 
         while (Galactic::g_inputProcessor.processNext(
