@@ -35,6 +35,18 @@ $on_mod(Loaded) {
 }
 
 class $modify(GalacticGameLayer, GJBaseGameLayer) {
+
+    static void onModify(auto& self) {
+        auto hook = self.getHook("GJBaseGameLayer::handleButton");
+
+        if (!hook) {
+            log::error("GALACTIC: handleButton hook registration FAILED!");
+            return;
+        }
+
+        log::info("GALACTIC: handleButton hook registered!");
+    }
+
     void handleButton(bool down, int button, bool isPlayer1) {
         if (down && !Galactic::g_firstInputLogged) {
             Galactic::g_firstInputLogged = true;
