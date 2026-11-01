@@ -25,6 +25,7 @@ namespace Galactic {
     bool g_firstProcessedLogged = false;
 
     bool g_firstVelocityLogged[2] = {false, false};
+    bool g_firstPathLogged[2] = {false, false};
 
     int g_lastMode[2] = {-1, -1};
 
@@ -75,6 +76,63 @@ namespace Galactic {
         log::info("Galactic initialized!");
         log::info("Physics Tracking v0.2 initialized.");
         log::info("Velocity sampling enabled.");
+        log::info("Pathfinder connection initialized.");
+    }
+
+    void predictPlayer(int playerIndex) {
+        const auto& snapshot = g_physicsTracker.get(playerIndex);
+
+        if (!snapshot.valid || !snapshot.velocityValid) {
+            return;
+        }
+
+        PhysicsState state;
+
+        state.position = {
+            snapshot.x,
+            snapshot.y
+        };
+
+        state.velocity = {
+            snapshot.velocityX,
+            snapshot.velocityY
+        };
+
+        // Initial approximation.
+        // Actual GD gravity and movement physics are not connected yet.
+        state.gravity = 0.0f;
+
+        auto mod = geode::Mod::get();
+
+        int64_t horizon = mod->getSettingValue<int64_t>(
+            "prediction-horizon"
+        );
+
+        int64_t budget = mod->getSettingValue<int64_t>(
+            "pathfinder-budget"
+        );
+
+        horizon = std::clamp<int64_t>(horizon, 1, 240);
+        budget = std::clamp<int64_t>(budget, 32, 2048);
+
+        constexpr float FRAME_TIME = 1.0f / 240.0f;
+
+        auto path = Pathfinder::predict(
+            state,
+            static_cast<int>(horizon),
+            FRAME_TIME,
+            static_cast<size_t>(budget)
+        );
+
+        if (!g_firstPathLogged[playerIndex] && !path.empty()) {
+            g_firstPathLogged[playerIndex] = true;
+
+            log::info(
+                "GALACTIC: P{} predicted path generated! Points={}",
+                playerIndex + 1,
+                path.size()
+            );
+        }
     }
 }
 
@@ -109,7 +167,6 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
 
         uint64_t now = Galactic::getTimestampMs();
 
-        // Player 1 velocity tracking.
         if (m_player1) {
             Galactic::g_physicsTracker.capture(
                 0,
@@ -136,9 +193,10 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
                     snapshot.velocityY
                 );
             }
+
+            Galactic::predictPlayer(0);
         }
 
-        // Player 2 velocity tracking.
         if (m_player2) {
             Galactic::g_physicsTracker.capture(
                 1,
@@ -165,12 +223,12 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
                     snapshot.velocityY
                 );
             }
+
+            Galactic::predictPlayer(1);
         }
 
-        // Expire old recorded inputs.
         Galactic::g_inputBuffer.update(now);
 
-        // Process remaining recorded inputs.
         Galactic::ProcessedInput result;
 
         while (Galactic::g_inputProcessor.processNext(
