@@ -1,9 +1,12 @@
 
 #pragma once
 
+#include <Geode/Geode.hpp>
+
 #include <array>
 #include <cstdint>
 #include <algorithm>
+#include <string>
 
 namespace Galactic {
 
@@ -29,24 +32,19 @@ struct ModeProfile {
 };
 
 struct PlayerProfiles {
-    std::array<ModeProfile, MODE_COUNT> modes;
+    std::array<ModeProfile, MODE_COUNT> modes{};
 };
 
 class ModeSettings {
 public:
+
     PlayerProfiles player1;
     PlayerProfiles player2;
 
-    ModeProfile& get(
-        int player,
-        GameMode mode
-    ) {
-        auto index = static_cast<size_t>(mode);
+    ModeProfile& get(int player, GameMode mode) {
+        size_t index = static_cast<size_t>(mode);
 
-        index = std::min(
-            index,
-            MODE_COUNT - 1
-        );
+        index = std::min(index, MODE_COUNT - 1);
 
         return player == 2
             ? player2.modes[index]
@@ -57,16 +55,72 @@ public:
         int player,
         GameMode mode
     ) const {
-        auto index = static_cast<size_t>(mode);
+        size_t index = static_cast<size_t>(mode);
 
-        index = std::min(
-            index,
-            MODE_COUNT - 1
-        );
+        index = std::min(index, MODE_COUNT - 1);
 
         return player == 2
             ? player2.modes[index]
             : player1.modes[index];
+    }
+
+    void loadFromGeode() {
+
+        static constexpr const char* names[] = {
+            "cube",
+            "ship",
+            "ball",
+            "ufo",
+            "wave",
+            "robot",
+            "spider",
+            "swing"
+        };
+
+        auto mod = geode::Mod::get();
+
+        for (int player = 1; player <= 2; player++) {
+
+            for (size_t i = 0; i < MODE_COUNT; i++) {
+
+                auto& profile = get(
+                    player,
+                    static_cast<GameMode>(i)
+                );
+
+                std::string prefix =
+                    "p" + std::to_string(player) +
+                    "-" + names[i] + "-";
+
+                auto ticks = mod->getSettingValue<int64_t>(
+                    prefix + "ticks"
+                );
+
+                auto frames = mod->getSettingValue<int64_t>(
+                    prefix + "frames"
+                );
+
+                auto window = mod->getSettingValue<int64_t>(
+                    prefix + "window"
+                );
+
+                profile.ticks = static_cast<int>(
+                    std::clamp<int64_t>(ticks, 0, 12)
+                );
+
+                profile.frameWindow = static_cast<int>(
+                    std::clamp<int64_t>(frames, 0, 30)
+                );
+
+                profile.bufferWindowMs = static_cast<int>(
+                    std::clamp<int64_t>(window, 0, 250)
+                );
+            }
+        }
+
+        geode::log::info(
+            "Galactic: loaded 48 timing settings."
+        );
     }
 };
 
