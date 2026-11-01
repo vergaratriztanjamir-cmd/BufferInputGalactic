@@ -17,10 +17,13 @@ namespace Galactic {
     ModeSettings g_settings;
     InputBuffer g_inputBuffer;
     InputProcessor g_inputProcessor;
+    PhysicsTracker g_physicsTracker;
 
     bool g_initialized = false;
     bool g_firstInputLogged = false;
     bool g_firstProcessedLogged = false;
+
+    bool g_firstSnapshotLogged[2] = {false, false};
 
     int g_lastMode[2] = {-1, -1};
 
@@ -74,6 +77,7 @@ namespace Galactic {
         log::info("Input recording initialized.");
         log::info("Game-mode detection initialized.");
         log::info("Input queue processing initialized.");
+        log::info("Physics tracking initialized.");
     }
 }
 
@@ -112,10 +116,52 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
 
         uint64_t now = Galactic::getTimestampMs();
 
-        // Remove inputs that have exceeded their timing window.
+        // Capture Player 1's actual game position.
+        if (m_player1) {
+            Galactic::g_physicsTracker.capture(
+                0,
+                m_player1->getPosition()
+            );
+
+            if (!Galactic::g_firstSnapshotLogged[0]) {
+                const auto& snapshot =
+                    Galactic::g_physicsTracker.get(0);
+
+                Galactic::g_firstSnapshotLogged[0] = true;
+
+                log::info(
+                    "GALACTIC: P1 position tracking active! x={}, y={}",
+                    snapshot.x,
+                    snapshot.y
+                );
+            }
+        }
+
+        // Capture Player 2's actual game position.
+        if (m_player2) {
+            Galactic::g_physicsTracker.capture(
+                1,
+                m_player2->getPosition()
+            );
+
+            if (!Galactic::g_firstSnapshotLogged[1]) {
+                const auto& snapshot =
+                    Galactic::g_physicsTracker.get(1);
+
+                Galactic::g_firstSnapshotLogged[1] = true;
+
+                log::info(
+                    "GALACTIC: P2 position tracking active! x={}, y={}",
+                    snapshot.x,
+                    snapshot.y
+                );
+            }
+        }
+
+        // Expire old recorded inputs.
         Galactic::g_inputBuffer.update(now);
 
-        // Evaluate every input that remains in the queue.
+        // Evaluate remaining recorded inputs.
         Galactic::ProcessedInput result;
 
         while (Galactic::g_inputProcessor.processNext(
