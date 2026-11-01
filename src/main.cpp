@@ -22,8 +22,7 @@ namespace Galactic {
     bool g_initialized = false;
     bool g_firstInputLogged = false;
     bool g_firstProcessedLogged = false;
-
-    bool g_firstSnapshotLogged[2] = {false, false};
+    bool g_firstVelocityLogged[2] = {false, false};
 
     int g_lastMode[2] = {-1, -1};
 
@@ -72,12 +71,8 @@ namespace Galactic {
         g_initialized = true;
 
         log::info("Galactic initialized!");
-        log::info("8 game modes loaded.");
-        log::info("Dual-player profiles loaded.");
-        log::info("Input recording initialized.");
-        log::info("Game-mode detection initialized.");
-        log::info("Input queue processing initialized.");
-        log::info("Physics tracking initialized.");
+        log::info("Physics Tracking v0.2 initialized.");
+        log::info("Velocity sampling enabled.");
     }
 }
 
@@ -92,97 +87,74 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
             "GJBaseGameLayer::handleButton"
         );
 
-        if (!buttonHook) {
+        if (!buttonHook)
             log::error("GALACTIC: Input hook registration FAILED!");
-        }
-        else {
+        else
             log::info("GALACTIC: Input hook registered!");
-        }
 
         auto updateHook = self.getHook(
             "GJBaseGameLayer::update"
         );
 
-        if (!updateHook) {
+        if (!updateHook)
             log::error("GALACTIC: Update hook registration FAILED!");
-        }
-        else {
+        else
             log::info("GALACTIC: Update hook registered!");
-        }
     }
 
     void update(float dt) {
         GJBaseGameLayer::update(dt);
 
-        // Diagnostic: confirm update() is executing.
-        static bool updateTestLogged = false;
-
-        if (!updateTestLogged) {
-            updateTestLogged = true;
-
-            log::info(
-                "GALACTIC DEBUG: UPDATE FUNCTION IS RUNNING!"
-            );
-        }
-
         uint64_t now = Galactic::getTimestampMs();
 
-        // Capture Player 1's actual game position.
         if (m_player1) {
             Galactic::g_physicsTracker.capture(
                 0,
-                m_player1->getPosition()
+                m_player1->getPosition(),
+                dt
             );
 
-            if (!Galactic::g_firstSnapshotLogged[0]) {
-                const auto& snapshot =
-                    Galactic::g_physicsTracker.get(0);
+            const auto& snapshot =
+                Galactic::g_physicsTracker.get(0);
 
-                Galactic::g_firstSnapshotLogged[0] = true;
+            if (snapshot.velocityValid &&
+                !Galactic::g_firstVelocityLogged[0]) {
+
+                Galactic::g_firstVelocityLogged[0] = true;
 
                 log::info(
-                    "GALACTIC: P1 position tracking active! x={}, y={}",
-                    snapshot.x,
-                    snapshot.y
-                );
-            }
-        }
-        else {
-            static bool p1NullLogged = false;
-
-            if (!p1NullLogged) {
-                p1NullLogged = true;
-                log::warn(
-                    "GALACTIC DEBUG: Player 1 pointer is NULL!"
+                    "GALACTIC: P1 velocity active! vx={}, vy={}",
+                    snapshot.velocityX,
+                    snapshot.velocityY
                 );
             }
         }
 
-        // Capture Player 2's actual game position.
         if (m_player2) {
             Galactic::g_physicsTracker.capture(
                 1,
-                m_player2->getPosition()
+                m_player2->getPosition(),
+                dt
             );
 
-            if (!Galactic::g_firstSnapshotLogged[1]) {
-                const auto& snapshot =
-                    Galactic::g_physicsTracker.get(1);
+            const auto& snapshot =
+                Galactic::g_physicsTracker.get(1);
 
-                Galactic::g_firstSnapshotLogged[1] = true;
+            if (snapshot.velocityValid &&
+                !Galactic::g_firstVelocityLogged[1]) {
+
+                Galactic::g_firstVelocityLogged[1] = true;
 
                 log::info(
-                    "GALACTIC: P2 position tracking active! x={}, y={}",
-                    snapshot.x,
-                    snapshot.y
+                    "GALACTIC: P2 velocity active! vx={}, vy={}",
+                    snapshot.velocityX,
+                    snapshot.velocityY
                 );
             }
         }
 
-        // Expire old recorded inputs.
         Galactic::g_inputBuffer.update(now);
 
-        // Process remaining recorded inputs.
         Galactic::ProcessedInput result;
 
         while (Galactic::g_inputProcessor.processNext(
@@ -259,12 +231,6 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
                     Galactic::g_firstInputLogged = true;
                     log::info("GALACTIC: Input recorded!");
                 }
-            }
-            else {
-                log::warn(
-                    "GALACTIC: Player {} pointer is null!",
-                    playerNumber
-                );
             }
         }
 
