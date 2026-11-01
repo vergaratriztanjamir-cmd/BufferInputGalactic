@@ -20,7 +20,6 @@ struct BufferedInput {
 class InputBuffer {
 private:
     std::deque<BufferedInput> inputs;
-
     static constexpr size_t MAX_INPUTS = 128;
 
 public:
@@ -50,12 +49,12 @@ public:
         });
     }
 
-    // Remove inputs that have expired.
     void update(uint64_t nowMs) {
         while (!inputs.empty()) {
             const auto& input = inputs.front();
 
-            if (nowMs - input.timestampMs <=
+            if (nowMs < input.timestampMs ||
+                nowMs - input.timestampMs <=
                 static_cast<uint64_t>(input.bufferWindowMs)) {
                 break;
             }
@@ -64,15 +63,25 @@ public:
         }
     }
 
-    // Get the number of currently stored inputs.
+    const BufferedInput* front() const {
+        if (inputs.empty()) return nullptr;
+        return &inputs.front();
+    }
+
+    bool consume(BufferedInput& output) {
+        if (inputs.empty()) return false;
+
+        output = inputs.front();
+        inputs.pop_front();
+        return true;
+    }
+
     size_t size() const {
         return inputs.size();
     }
 
-    // Get the oldest stored input.
-    const BufferedInput* front() const {
-        if (inputs.empty()) return nullptr;
-        return &inputs.front();
+    bool empty() const {
+        return inputs.empty();
     }
 
     void clear() {
