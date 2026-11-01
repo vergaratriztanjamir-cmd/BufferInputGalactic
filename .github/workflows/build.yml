@@ -1,0 +1,31 @@
+
+name: Build Galactic Android64
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Android64
+        uses: geode-sdk/build-geode-mod@main
+        with:
+          target: Android64
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Galactic-Android64
+          path: |
+            build/**/*.geode
+            build-android64/**/*.geode
+            *.geode
+          if-no-files-found: warn
