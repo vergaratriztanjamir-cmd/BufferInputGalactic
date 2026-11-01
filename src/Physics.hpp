@@ -1,63 +1,64 @@
 
 #pragma once
 
+#include <Geode/Geode.hpp>
 #include <cmath>
-#include <algorithm>
 
 namespace Galactic {
 
-struct Vec2 {
-    float x = 0.f;
-    float y = 0.f;
+struct PlayerSnapshot {
+    float x = 0.0f;
+    float y = 0.0f;
+
+    float velocityX = 0.0f;
+    float velocityY = 0.0f;
+
+    bool valid = false;
 };
 
-struct PhysicsState {
-    Vec2 position;
-    Vec2 velocity;
-    Vec2 acceleration;
+class PhysicsTracker {
+private:
+    PlayerSnapshot previous[2];
+    PlayerSnapshot current[2];
+
+public:
+    void capture(int playerIndex, cocos2d::CCPoint position) {
+        if (playerIndex < 0 || playerIndex > 1) return;
+
+        PlayerSnapshot next;
+        next.x = position.x;
+        next.y = position.y;
+        next.valid = true;
+
+        if (current[playerIndex].valid) {
+            previous[playerIndex] = current[playerIndex];
+
+            next.velocityX =
+                next.x - previous[playerIndex].x;
+
+            next.velocityY =
+                next.y - previous[playerIndex].y;
+        }
+
+        current[playerIndex] = next;
+    }
+
+    const PlayerSnapshot& get(int playerIndex) const {
+        static const PlayerSnapshot empty{};
+
+        if (playerIndex < 0 || playerIndex > 1) {
+            return empty;
+        }
+
+        return current[playerIndex];
+    }
+
+    void reset() {
+        for (int i = 0; i < 2; i++) {
+            previous[i] = PlayerSnapshot{};
+            current[i] = PlayerSnapshot{};
+        }
+    }
 };
-
-inline PhysicsState simulateStep(
-    PhysicsState state,
-    float deltaTime
-) {
-    state.velocity.x +=
-        state.acceleration.x * deltaTime;
-
-    state.velocity.y +=
-        state.acceleration.y * deltaTime;
-
-    state.position.x +=
-        state.velocity.x * deltaTime;
-
-    state.position.y +=
-        state.velocity.y * deltaTime;
-
-    return state;
-}
-
-inline float distanceSquared(
-    Vec2 a,
-    Vec2 b
-) {
-    float dx = a.x - b.x;
-    float dy = a.y - b.y;
-
-    return dx * dx + dy * dy;
-}
-
-inline bool circlesOverlap(
-    Vec2 a,
-    float radiusA,
-    Vec2 b,
-    float radiusB
-) {
-    float radius =
-        std::max(0.f, radiusA) +
-        std::max(0.f, radiusB);
-
-    return distanceSquared(a, b)
-        <= radius * radius;
-}
 
 }
