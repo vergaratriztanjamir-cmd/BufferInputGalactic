@@ -18,7 +18,6 @@ namespace Galactic {
 
     bool g_initialized = false;
     bool g_firstInputLogged = false;
-    bool g_playerDebugLogged = false;
 
     int g_lastMode[2] = {-1, -1};
 
@@ -95,21 +94,17 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
 
         if (down) {
 
-            if (!Galactic::g_playerDebugLogged) {
-                Galactic::g_playerDebugLogged = true;
+            // Single-player always uses Player 1.
+            // Dual mode uses the input's player identifier.
+            bool isDual = m_gameState.m_isDualMode;
 
-                log::info(
-                    "GALACTIC DEBUG: isPlayer1={}, P1 pointer={}, P2 pointer={}",
-                    isPlayer1,
-                    m_player1 != nullptr,
-                    m_player2 != nullptr
-                );
-            }
+            int playerNumber = isDual
+                ? (isPlayer1 ? 1 : 2)
+                : 1;
 
-            int playerNumber = isPlayer1 ? 1 : 2;
-
-            PlayerObject* playerObject =
-                isPlayer1 ? m_player1 : m_player2;
+            PlayerObject* playerObject = playerNumber == 1
+                ? m_player1
+                : m_player2;
 
             if (playerObject) {
 
@@ -142,8 +137,8 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
             }
             else {
                 log::warn(
-                    "GALACTIC: Selected player pointer is null. isPlayer1={}",
-                    isPlayer1
+                    "GALACTIC: Player {} pointer is null!",
+                    playerNumber
                 );
             }
         }
