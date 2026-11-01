@@ -70,6 +70,7 @@ namespace Galactic {
         log::info("Dual-player profiles loaded.");
         log::info("Input recording initialized.");
         log::info("Game-mode detection initialized.");
+        log::info("Input queue processing initialized.");
     }
 }
 
@@ -80,22 +81,41 @@ $on_mod(Loaded) {
 class $modify(GalacticGameLayer, GJBaseGameLayer) {
 
     static void onModify(auto& self) {
-        auto hook = self.getHook("GJBaseGameLayer::handleButton");
+        auto buttonHook = self.getHook(
+            "GJBaseGameLayer::handleButton"
+        );
 
-        if (!hook) {
+        if (!buttonHook) {
             log::error("GALACTIC: Input hook registration FAILED!");
-            return;
+        }
+        else {
+            log::info("GALACTIC: Input hook registered!");
         }
 
-        log::info("GALACTIC: Input hook registered!");
+        auto updateHook = self.getHook(
+            "GJBaseGameLayer::update"
+        );
+
+        if (!updateHook) {
+            log::error("GALACTIC: Update hook registration FAILED!");
+        }
+        else {
+            log::info("GALACTIC: Update hook registered!");
+        }
+    }
+
+    void update(float dt) {
+        GJBaseGameLayer::update(dt);
+
+        Galactic::g_inputBuffer.update(
+            Galactic::getTimestampMs()
+        );
     }
 
     void handleButton(bool down, int button, bool isPlayer1) {
 
         if (down) {
 
-            // Single-player always uses Player 1.
-            // Dual mode uses the input's player identifier.
             bool isDual = m_gameState.m_isDualMode;
 
             int playerNumber = isDual
@@ -111,11 +131,9 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
                 auto mode = Galactic::detectMode(playerObject);
                 int modeIndex = static_cast<int>(mode);
 
-                // Retrieve this player's settings for the detected mode.
                 const auto& profile =
                     Galactic::g_settings.get(playerNumber, mode);
 
-                // Record the input together with its timing settings.
                 Galactic::g_inputBuffer.push(
                     Galactic::getTimestampMs(),
                     playerNumber,
