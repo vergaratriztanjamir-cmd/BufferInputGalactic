@@ -7,6 +7,7 @@
 #include "ModeSettings.hpp"
 #include "Physics.hpp"
 #include "InputBuffer.hpp"
+#include "InputProcessor.hpp"
 #include "Pathfinder.hpp"
 
 using namespace geode::prelude;
@@ -15,9 +16,11 @@ namespace Galactic {
 
     ModeSettings g_settings;
     InputBuffer g_inputBuffer;
+    InputProcessor g_inputProcessor;
 
     bool g_initialized = false;
     bool g_firstInputLogged = false;
+    bool g_firstProcessedLogged = false;
 
     int g_lastMode[2] = {-1, -1};
 
@@ -107,9 +110,30 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
     void update(float dt) {
         GJBaseGameLayer::update(dt);
 
-        Galactic::g_inputBuffer.update(
-            Galactic::getTimestampMs()
-        );
+        uint64_t now = Galactic::getTimestampMs();
+
+        // Remove inputs that have exceeded their timing window.
+        Galactic::g_inputBuffer.update(now);
+
+        // Evaluate every input that remains in the queue.
+        Galactic::ProcessedInput result;
+
+        while (Galactic::g_inputProcessor.processNext(
+            Galactic::g_inputBuffer,
+            now,
+            result
+        )) {
+            if (!Galactic::g_firstProcessedLogged) {
+                Galactic::g_firstProcessedLogged = true;
+
+                log::info(
+                    "GALACTIC: Input processor active! Player={}, mode={}, withinWindow={}",
+                    result.input.player,
+                    result.input.mode,
+                    result.withinWindow
+                );
+            }
+        }
     }
 
     void handleButton(bool down, int button, bool isPlayer1) {
