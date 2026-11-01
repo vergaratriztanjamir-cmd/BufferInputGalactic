@@ -111,11 +111,19 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
                 auto mode = Galactic::detectMode(playerObject);
                 int modeIndex = static_cast<int>(mode);
 
+                // Retrieve this player's settings for the detected mode.
+                const auto& profile =
+                    Galactic::g_settings.get(playerNumber, mode);
+
+                // Record the input together with its timing settings.
                 Galactic::g_inputBuffer.push(
                     Galactic::getTimestampMs(),
                     playerNumber,
                     modeIndex,
-                    button
+                    button,
+                    profile.ticks,
+                    profile.frameWindow,
+                    profile.bufferWindowMs
                 );
 
                 int slot = playerNumber - 1;
@@ -127,6 +135,14 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
                         "GALACTIC: Player {} mode detected: {}",
                         playerNumber,
                         Galactic::modeName(mode)
+                    );
+
+                    log::info(
+                        "GALACTIC: P{} timing: ticks={}, frames={}, window={}ms",
+                        playerNumber,
+                        profile.ticks,
+                        profile.frameWindow,
+                        profile.bufferWindowMs
                     );
                 }
 
