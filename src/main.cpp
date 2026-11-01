@@ -114,6 +114,17 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
     void update(float dt) {
         GJBaseGameLayer::update(dt);
 
+        // Diagnostic: confirm update() is executing.
+        static bool updateTestLogged = false;
+
+        if (!updateTestLogged) {
+            updateTestLogged = true;
+
+            log::info(
+                "GALACTIC DEBUG: UPDATE FUNCTION IS RUNNING!"
+            );
+        }
+
         uint64_t now = Galactic::getTimestampMs();
 
         // Capture Player 1's actual game position.
@@ -133,6 +144,16 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
                     "GALACTIC: P1 position tracking active! x={}, y={}",
                     snapshot.x,
                     snapshot.y
+                );
+            }
+        }
+        else {
+            static bool p1NullLogged = false;
+
+            if (!p1NullLogged) {
+                p1NullLogged = true;
+                log::warn(
+                    "GALACTIC DEBUG: Player 1 pointer is NULL!"
                 );
             }
         }
@@ -161,7 +182,7 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
         // Expire old recorded inputs.
         Galactic::g_inputBuffer.update(now);
 
-        // Evaluate remaining recorded inputs.
+        // Process remaining recorded inputs.
         Galactic::ProcessedInput result;
 
         while (Galactic::g_inputProcessor.processNext(
