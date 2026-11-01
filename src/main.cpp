@@ -16,40 +16,32 @@ namespace Galactic {
     bool g_initialized = false;
 
     void initializeGalactic() {
+
         if (g_initialized)
             return;
 
+        g_settings.loadFromGeode();
+
         g_initialized = true;
 
-        log::info("Galactic initialization started.");
+        log::info("========== GALACTIC ==========");
 
-        log::info(
-            "Supported game modes: 8"
-        );
+        log::info("Android64 build");
 
-        log::info(
-            "Dual-player profiles: enabled"
-        );
+        log::info("8 game modes initialized");
 
-        log::info(
-            "Input buffer core: initialized"
-        );
+        log::info("Dual-player profiles loaded");
 
-        log::info(
-            "Pathfinder core: initialized"
-        );
+        log::info("Input buffer core initialized");
 
-        log::info(
-            "Galactic initialization complete."
-        );
+        log::info("Pathfinder core initialized");
+
+        log::info("Galactic startup complete!");
+
+        log::info("==============================");
     }
-
 }
 
 $on_mod(Loaded) {
     Galactic::initializeGalactic();
-
-    log::info(
-        "Galactic loaded successfully."
-    );
 }
