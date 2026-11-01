@@ -1,0 +1,43 @@
+
+{
+  "geode": "5.11.2",
+  "gd": {
+    "android": "2.2081"
+  },
+  "id": "galactic.inputbuffer",
+  "name": "Galactic",
+  "version": "0.1.0",
+  "developer": "Galactic",
+  "description": "Predictive input and pathfinding system for Android64.",
+  "tags": [
+    "gameplay",
+    "utility"
+  ],
+  "settings": {
+    "enable-buffer": {
+      "name": "Enable Input Buffer",
+      "type": "bool",
+      "default": true
+    },
+    "enable-pathfinder": {
+      "name": "Enable Pathfinder",
+      "type": "bool",
+      "default": true
+    },
+    "dual-support": {
+      "name": "Dual Player Support",
+      "type": "bool",
+      "default": true
+    },
+    "prediction-horizon": {
+      "name": "Prediction Horizon",
+      "type": "int",
+      "default": 30,
+      "min": 1,
+      "max": 240,
+      "control": {
+        "slider": true
+      }
+    }
+  }
+}
