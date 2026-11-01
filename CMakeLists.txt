@@ -1,14 +1,17 @@
 
 cmake_minimum_required(VERSION 3.21)
 
-project(Galactic)
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-if (NOT DEFINED GEODE_SDK)
-    message(FATAL_ERROR "GEODE_SDK is missing")
+project(Galactic VERSION 1.0.0)
+
+if (NOT DEFINED ENV{GEODE_SDK})
+    message(FATAL_ERROR "Unable to find Geode SDK!")
 endif()
 
 add_subdirectory(
-    ${GEODE_SDK}
+    $ENV{GEODE_SDK}
     ${CMAKE_CURRENT_BINARY_DIR}/geode
 )
 
