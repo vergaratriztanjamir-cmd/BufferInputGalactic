@@ -4,6 +4,7 @@
 
 #include <chrono>
 #include <cmath>
+#include <algorithm>
 
 #include "ModeSettings.hpp"
 #include "Physics.hpp"
@@ -28,6 +29,7 @@ namespace Galactic {
     bool g_firstPathLogged[2] = {false, false};
 
     int g_lastMode[2] = {-1, -1};
+    int g_lastPredictionFrames[2] = {-1, -1};
 
     uint64_t getTimestampMs() {
         auto now = std::chrono::steady_clock::now();
@@ -74,17 +76,32 @@ namespace Galactic {
         g_initialized = true;
 
         log::info("Galactic initialized!");
-        log::info("Physics Tracking v0.2 initialized.");
+        log::info("Physics Tracking v0.3 initialized.");
         log::info("Velocity sampling enabled.");
-        log::info("Pathfinder connection initialized.");
+        log::info("Mode-aware Pathfinder initialized.");
     }
 
-    void predictPlayer(int playerIndex) {
-        const auto& snapshot = g_physicsTracker.get(playerIndex);
+    void predictPlayer(int playerIndex, PlayerObject* playerObject) {
+        if (playerIndex < 0 || playerIndex > 1 || !playerObject) {
+            return;
+        }
+
+        const auto& snapshot =
+            g_physicsTracker.get(playerIndex);
 
         if (!snapshot.valid || !snapshot.velocityValid) {
             return;
         }
+
+        int playerNumber = playerIndex + 1;
+
+        GameMode mode = detectMode(playerObject);
+
+        PredictionProfile profile = Pathfinder::makeProfile(
+            playerNumber,
+            mode,
+            g_settings
+        );
 
         PhysicsState state;
 
@@ -99,7 +116,7 @@ namespace Galactic {
         };
 
         // Initial approximation.
-        // Actual GD gravity and movement physics are not connected yet.
+        // Actual GD movement physics are not connected yet.
         state.gravity = 0.0f;
 
         auto mod = geode::Mod::get();
@@ -115,22 +132,55 @@ namespace Galactic {
         horizon = std::clamp<int64_t>(horizon, 1, 240);
         budget = std::clamp<int64_t>(budget, 32, 2048);
 
+        int predictionFrames = std::min(
+            profile.frameWindow,
+            static_cast<int>(horizon)
+        );
+
         constexpr float FRAME_TIME = 1.0f / 240.0f;
 
-        auto path = Pathfinder::predict(
+        auto path = Pathfinder::predictForMode(
             state,
-            static_cast<int>(horizon),
+            profile,
             FRAME_TIME,
             static_cast<size_t>(budget)
         );
 
-        if (!g_firstPathLogged[playerIndex] && !path.empty()) {
+        // Apply the global horizon limit as well.
+        if (path.size() >
+            static_cast<size_t>(predictionFrames) + 1) {
+            path.resize(
+                static_cast<size_t>(predictionFrames) + 1
+            );
+        }
+
+        if (
+            !g_firstPathLogged[playerIndex] &&
+            !path.empty()
+        ) {
             g_firstPathLogged[playerIndex] = true;
 
             log::info(
-                "GALACTIC: P{} predicted path generated! Points={}",
-                playerIndex + 1,
-                path.size()
+                "GALACTIC: P{} mode-aware path generated! Mode={}, Points={}, Frames={}",
+                playerNumber,
+                modeName(mode),
+                path.size(),
+                predictionFrames
+            );
+        }
+
+        if (g_lastMode[playerIndex] != static_cast<int>(mode) ||
+            g_lastPredictionFrames[playerIndex] != predictionFrames) {
+
+            g_lastPredictionFrames[playerIndex] = predictionFrames;
+
+            log::info(
+                "GALACTIC: P{} prediction profile: Mode={}, Frames={}, Ticks={}, Window={}ms",
+                playerNumber,
+                modeName(mode),
+                predictionFrames,
+                profile.ticks,
+                profile.bufferWindowMs
             );
         }
     }
@@ -194,10 +244,10 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
                 );
             }
 
-            Galactic::predictPlayer(0);
+            Galactic::predictPlayer(0, m_player1);
         }
 
-        if (m_player2) {
+        if (m_player2 && m_gameState.m_isDualMode) {
             Galactic::g_physicsTracker.capture(
                 1,
                 m_player2->getPosition(),
@@ -224,7 +274,7 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
                 );
             }
 
-            Galactic::predictPlayer(1);
+            Galactic::predictPlayer(1, m_player2);
         }
 
         Galactic::g_inputBuffer.update(now);
