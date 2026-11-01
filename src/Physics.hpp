@@ -6,6 +6,44 @@
 
 namespace Galactic {
 
+struct Vec2 {
+    float x = 0.0f;
+    float y = 0.0f;
+};
+
+struct PhysicsState {
+    Vec2 position;
+    Vec2 velocity;
+    float gravity = 0.0f;
+};
+
+inline PhysicsState simulateStep(
+    PhysicsState state,
+    float deltaTime
+) {
+    state.position.x += state.velocity.x * deltaTime;
+    state.position.y += state.velocity.y * deltaTime;
+
+    state.velocity.y += state.gravity * deltaTime;
+
+    return state;
+}
+
+inline bool circlesOverlap(
+    Vec2 a,
+    float radiusA,
+    Vec2 b,
+    float radiusB
+) {
+    float dx = a.x - b.x;
+    float dy = a.y - b.y;
+
+    float radiusSum = radiusA + radiusB;
+
+    return (dx * dx + dy * dy) <=
+        (radiusSum * radiusSum);
+}
+
 struct PlayerSnapshot {
     float x = 0.0f;
     float y = 0.0f;
