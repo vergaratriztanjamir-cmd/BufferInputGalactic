@@ -28,7 +28,11 @@ namespace Galactic {
     bool g_firstVelocityLogged[2] = {false, false};
     bool g_firstPathLogged[2] = {false, false};
 
+    // Input mode tracking
     int g_lastMode[2] = {-1, -1};
+
+    // Prediction mode tracking
+    int g_lastPredictionMode[2] = {-1, -1};
     int g_lastPredictionFrames[2] = {-1, -1};
 
     uint64_t getTimestampMs() {
@@ -146,7 +150,7 @@ namespace Galactic {
             static_cast<size_t>(budget)
         );
 
-        // Apply the global horizon limit as well.
+        // Apply the global horizon limit.
         if (path.size() >
             static_cast<size_t>(predictionFrames) + 1) {
             path.resize(
@@ -154,6 +158,7 @@ namespace Galactic {
             );
         }
 
+        // Log the first generated path for each player.
         if (
             !g_firstPathLogged[playerIndex] &&
             !path.empty()
@@ -169,9 +174,12 @@ namespace Galactic {
             );
         }
 
-        if (g_lastMode[playerIndex] != static_cast<int>(mode) ||
-            g_lastPredictionFrames[playerIndex] != predictionFrames) {
-
+        // Log only when the prediction mode or frame setting changes.
+        if (
+            g_lastPredictionMode[playerIndex] != static_cast<int>(mode) ||
+            g_lastPredictionFrames[playerIndex] != predictionFrames
+        ) {
+            g_lastPredictionMode[playerIndex] = static_cast<int>(mode);
             g_lastPredictionFrames[playerIndex] = predictionFrames;
 
             log::info(
