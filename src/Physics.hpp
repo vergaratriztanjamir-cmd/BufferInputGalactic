@@ -23,9 +23,7 @@ inline PhysicsState simulateStep(
 ) {
     state.position.x += state.velocity.x * deltaTime;
     state.position.y += state.velocity.y * deltaTime;
-
     state.velocity.y += state.gravity * deltaTime;
-
     return state;
 }
 
@@ -65,12 +63,43 @@ public:
         cocos2d::CCPoint position,
         float deltaTime
     ) {
+        return captureInternal(
+            playerIndex,
+            position,
+            deltaTime,
+            0.0f,
+            false
+        );
+    }
+
+    bool captureWithVerticalVelocity(
+        int playerIndex,
+        cocos2d::CCPoint position,
+        float deltaTime,
+        float actualYVelocity
+    ) {
+        return captureInternal(
+            playerIndex,
+            position,
+            deltaTime,
+            actualYVelocity,
+            true
+        );
+    }
+
+private:
+    bool captureInternal(
+        int playerIndex,
+        cocos2d::CCPoint position,
+        float deltaTime,
+        float actualYVelocity,
+        bool hasActualYVelocity
+    ) {
         if (playerIndex < 0 || playerIndex > 1) {
             return false;
         }
 
         PlayerSnapshot next;
-
         next.x = position.x;
         next.y = position.y;
         next.valid = true;
@@ -83,17 +112,18 @@ public:
             next.velocityX =
                 (next.x - previous[playerIndex].x) / deltaTime;
 
-            next.velocityY =
-                (next.y - previous[playerIndex].y) / deltaTime;
+            next.velocityY = hasActualYVelocity
+                ? actualYVelocity
+                : (next.y - previous[playerIndex].y) / deltaTime;
 
             next.velocityValid = true;
         }
 
         current[playerIndex] = next;
-
         return next.velocityValid;
     }
 
+public:
     const PlayerSnapshot& get(int playerIndex) const {
         static const PlayerSnapshot empty{};
 
