@@ -78,8 +78,8 @@ namespace Galactic {
         g_initialized = true;
 
         log::info("Galactic initialized!");
-        log::info("Physics Tracking v0.4 initialized.");
-        log::info("Actual vertical velocity sampling enabled.");
+        log::info("Physics Tracking v0.5 initialized.");
+        log::info("Actual horizontal and vertical velocity sampling enabled.");
         log::info("Mode-aware Pathfinder initialized.");
     }
 
@@ -117,7 +117,7 @@ namespace Galactic {
             snapshot.velocityY
         };
 
-        // Gravity remains an approximation for now.
+        // Gravity remains zero until its game units are verified.
         state.gravity = 0.0f;
 
         auto mod = geode::Mod::get();
@@ -217,10 +217,15 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
         uint64_t now = Galactic::getTimestampMs();
 
         if (m_player1) {
-            Galactic::g_physicsTracker.captureWithVerticalVelocity(
+            double actualXVelocity =
+                m_player1->getCurrentXVelocity() *
+                m_player1->reverseMod();
+
+            Galactic::g_physicsTracker.captureWithActualVelocity(
                 0,
                 m_player1->getPosition(),
                 dt,
+                actualXVelocity,
                 m_player1->m_yVelocity
             );
 
@@ -229,16 +234,12 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
 
             if (
                 snapshot.velocityValid &&
-                !Galactic::g_firstVelocityLogged[0] &&
-                (
-                    std::abs(snapshot.velocityX) > 0.01f ||
-                    std::abs(snapshot.velocityY) > 0.01f
-                )
+                !Galactic::g_firstVelocityLogged[0]
             ) {
                 Galactic::g_firstVelocityLogged[0] = true;
 
                 log::info(
-                    "GALACTIC: P1 velocity active! vx={}, actual vy={}",
+                    "GALACTIC: P1 actual velocity! vx={}, vy={}",
                     snapshot.velocityX,
                     snapshot.velocityY
                 );
@@ -248,10 +249,15 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
         }
 
         if (m_player2 && m_gameState.m_isDualMode) {
-            Galactic::g_physicsTracker.captureWithVerticalVelocity(
+            double actualXVelocity =
+                m_player2->getCurrentXVelocity() *
+                m_player2->reverseMod();
+
+            Galactic::g_physicsTracker.captureWithActualVelocity(
                 1,
                 m_player2->getPosition(),
                 dt,
+                actualXVelocity,
                 m_player2->m_yVelocity
             );
 
@@ -260,16 +266,12 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
 
             if (
                 snapshot.velocityValid &&
-                !Galactic::g_firstVelocityLogged[1] &&
-                (
-                    std::abs(snapshot.velocityX) > 0.01f ||
-                    std::abs(snapshot.velocityY) > 0.01f
-                )
+                !Galactic::g_firstVelocityLogged[1]
             ) {
                 Galactic::g_firstVelocityLogged[1] = true;
 
                 log::info(
-                    "GALACTIC: P2 velocity active! vx={}, actual vy={}",
+                    "GALACTIC: P2 actual velocity! vx={}, vy={}",
                     snapshot.velocityX,
                     snapshot.velocityY
                 );
