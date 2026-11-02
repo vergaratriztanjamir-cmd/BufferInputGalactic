@@ -28,10 +28,8 @@ namespace Galactic {
     bool g_firstVelocityLogged[2] = {false, false};
     bool g_firstPathLogged[2] = {false, false};
 
-    // Input mode tracking
     int g_lastMode[2] = {-1, -1};
 
-    // Prediction mode tracking
     int g_lastPredictionMode[2] = {-1, -1};
     int g_lastPredictionFrames[2] = {-1, -1};
 
@@ -80,8 +78,8 @@ namespace Galactic {
         g_initialized = true;
 
         log::info("Galactic initialized!");
-        log::info("Physics Tracking v0.3 initialized.");
-        log::info("Velocity sampling enabled.");
+        log::info("Physics Tracking v0.4 initialized.");
+        log::info("Actual vertical velocity sampling enabled.");
         log::info("Mode-aware Pathfinder initialized.");
     }
 
@@ -119,8 +117,7 @@ namespace Galactic {
             snapshot.velocityY
         };
 
-        // Initial approximation.
-        // Actual GD movement physics are not connected yet.
+        // Gravity remains an approximation for now.
         state.gravity = 0.0f;
 
         auto mod = geode::Mod::get();
@@ -150,7 +147,6 @@ namespace Galactic {
             static_cast<size_t>(budget)
         );
 
-        // Apply the global horizon limit.
         if (path.size() >
             static_cast<size_t>(predictionFrames) + 1) {
             path.resize(
@@ -158,11 +154,7 @@ namespace Galactic {
             );
         }
 
-        // Log the first generated path for each player.
-        if (
-            !g_firstPathLogged[playerIndex] &&
-            !path.empty()
-        ) {
+        if (!g_firstPathLogged[playerIndex] && !path.empty()) {
             g_firstPathLogged[playerIndex] = true;
 
             log::info(
@@ -174,7 +166,6 @@ namespace Galactic {
             );
         }
 
-        // Log only when the prediction mode or frame setting changes.
         if (
             g_lastPredictionMode[playerIndex] != static_cast<int>(mode) ||
             g_lastPredictionFrames[playerIndex] != predictionFrames
@@ -226,10 +217,11 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
         uint64_t now = Galactic::getTimestampMs();
 
         if (m_player1) {
-            Galactic::g_physicsTracker.capture(
+            Galactic::g_physicsTracker.captureWithVerticalVelocity(
                 0,
                 m_player1->getPosition(),
-                dt
+                dt,
+                m_player1->m_yVelocity
             );
 
             const auto& snapshot =
@@ -246,7 +238,7 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
                 Galactic::g_firstVelocityLogged[0] = true;
 
                 log::info(
-                    "GALACTIC: P1 velocity active! vx={}, vy={}",
+                    "GALACTIC: P1 velocity active! vx={}, actual vy={}",
                     snapshot.velocityX,
                     snapshot.velocityY
                 );
@@ -256,10 +248,11 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
         }
 
         if (m_player2 && m_gameState.m_isDualMode) {
-            Galactic::g_physicsTracker.capture(
+            Galactic::g_physicsTracker.captureWithVerticalVelocity(
                 1,
                 m_player2->getPosition(),
-                dt
+                dt,
+                m_player2->m_yVelocity
             );
 
             const auto& snapshot =
@@ -276,7 +269,7 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
                 Galactic::g_firstVelocityLogged[1] = true;
 
                 log::info(
-                    "GALACTIC: P2 velocity active! vx={}, vy={}",
+                    "GALACTIC: P2 velocity active! vx={}, actual vy={}",
                     snapshot.velocityX,
                     snapshot.velocityY
                 );
@@ -308,9 +301,7 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
     }
 
     void handleButton(bool down, int button, bool isPlayer1) {
-
         if (down) {
-
             bool isDual = m_gameState.m_isDualMode;
 
             int playerNumber = isDual
@@ -322,7 +313,6 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
                 : m_player2;
 
             if (playerObject) {
-
                 auto mode = Galactic::detectMode(playerObject);
                 int modeIndex = static_cast<int>(mode);
 
