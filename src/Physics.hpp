@@ -68,21 +68,24 @@ public:
             position,
             deltaTime,
             0.0f,
+            0.0f,
             false
         );
     }
 
-    bool captureWithVerticalVelocity(
+    bool captureWithActualVelocity(
         int playerIndex,
         cocos2d::CCPoint position,
         float deltaTime,
-        float actualYVelocity
+        double actualXVelocity,
+        double actualYVelocity
     ) {
         return captureInternal(
             playerIndex,
             position,
             deltaTime,
-            actualYVelocity,
+            static_cast<float>(actualXVelocity),
+            static_cast<float>(actualYVelocity),
             true
         );
     }
@@ -92,8 +95,9 @@ private:
         int playerIndex,
         cocos2d::CCPoint position,
         float deltaTime,
+        float actualXVelocity,
         float actualYVelocity,
-        bool hasActualYVelocity
+        bool hasActualVelocity
     ) {
         if (playerIndex < 0 || playerIndex > 1) {
             return false;
@@ -104,17 +108,22 @@ private:
         next.y = position.y;
         next.valid = true;
 
-        if (current[playerIndex].valid &&
-            deltaTime > 0.0001f) {
-
+        if (
+            current[playerIndex].valid &&
+            deltaTime > 0.0001f
+        ) {
             previous[playerIndex] = current[playerIndex];
 
-            next.velocityX =
-                (next.x - previous[playerIndex].x) / deltaTime;
+            if (hasActualVelocity) {
+                next.velocityX = actualXVelocity;
+                next.velocityY = actualYVelocity;
+            } else {
+                next.velocityX =
+                    (next.x - previous[playerIndex].x) / deltaTime;
 
-            next.velocityY = hasActualYVelocity
-                ? actualYVelocity
-                : (next.y - previous[playerIndex].y) / deltaTime;
+                next.velocityY =
+                    (next.y - previous[playerIndex].y) / deltaTime;
+            }
 
             next.velocityValid = true;
         }
