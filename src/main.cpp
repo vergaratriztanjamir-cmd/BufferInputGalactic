@@ -1,10 +1,9 @@
-
 #include <Geode/Geode.hpp>
 #include <Geode/modify/GJBaseGameLayer.hpp>
 
 #include <chrono>
-#include <cmath>
 #include <algorithm>
+#include <cstdint>
 
 #include "ModeSettings.hpp"
 #include "Physics.hpp"
@@ -29,7 +28,6 @@ namespace Galactic {
     bool g_firstPathLogged[2] = {false, false};
 
     int g_lastMode[2] = {-1, -1};
-
     int g_lastPredictionMode[2] = {-1, -1};
     int g_lastPredictionFrames[2] = {-1, -1};
 
@@ -45,7 +43,6 @@ namespace Galactic {
 
     GameMode detectMode(PlayerObject* player) {
         if (!player) return GameMode::Cube;
-
         if (player->m_isShip) return GameMode::Ship;
         if (player->m_isBall) return GameMode::Ball;
         if (player->m_isBird) return GameMode::UFO;
@@ -81,6 +78,7 @@ namespace Galactic {
         log::info("Physics Tracking v0.5 initialized.");
         log::info("Actual horizontal and vertical velocity sampling enabled.");
         log::info("Mode-aware Pathfinder initialized.");
+        log::info("Press and release input recording enabled.");
     }
 
     void predictPlayer(int playerIndex, PlayerObject* playerObject) {
@@ -88,15 +86,13 @@ namespace Galactic {
             return;
         }
 
-        const auto& snapshot =
-            g_physicsTracker.get(playerIndex);
+        const auto& snapshot = g_physicsTracker.get(playerIndex);
 
         if (!snapshot.valid || !snapshot.velocityValid) {
             return;
         }
 
         int playerNumber = playerIndex + 1;
-
         GameMode mode = detectMode(playerObject);
 
         PredictionProfile profile = Pathfinder::makeProfile(
@@ -107,17 +103,8 @@ namespace Galactic {
 
         PhysicsState state;
 
-        state.position = {
-            snapshot.x,
-            snapshot.y
-        };
-
-        state.velocity = {
-            snapshot.velocityX,
-            snapshot.velocityY
-        };
-
-        // Gravity remains zero until its game units are verified.
+        state.position = {snapshot.x, snapshot.y};
+        state.velocity = {snapshot.velocityX, snapshot.velocityY};
         state.gravity = 0.0f;
 
         auto mod = geode::Mod::get();
@@ -229,8 +216,7 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
                 m_player1->m_yVelocity
             );
 
-            const auto& snapshot =
-                Galactic::g_physicsTracker.get(0);
+            const auto& snapshot = Galactic::g_physicsTracker.get(0);
 
             if (
                 snapshot.velocityValid &&
@@ -261,8 +247,7 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
                 m_player2->m_yVelocity
             );
 
-            const auto& snapshot =
-                Galactic::g_physicsTracker.get(1);
+            const auto& snapshot = Galactic::g_physicsTracker.get(1);
 
             if (
                 snapshot.velocityValid &&
@@ -293,9 +278,10 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
                 Galactic::g_firstProcessedLogged = true;
 
                 log::info(
-                    "GALACTIC: Input processor active! Player={}, mode={}, withinWindow={}",
+                    "GALACTIC: Input processor active! Player={}, mode={}, down={}, withinWindow={}",
                     result.input.player,
                     result.input.mode,
+                    result.input.down,
                     result.withinWindow
                 );
             }
@@ -303,58 +289,57 @@ class $modify(GalacticGameLayer, GJBaseGameLayer) {
     }
 
     void handleButton(bool down, int button, bool isPlayer1) {
-        if (down) {
-            bool isDual = m_gameState.m_isDualMode;
+        bool isDual = m_gameState.m_isDualMode;
 
-            int playerNumber = isDual
-                ? (isPlayer1 ? 1 : 2)
-                : 1;
+        int playerNumber = isDual
+            ? (isPlayer1 ? 1 : 2)
+            : 1;
 
-            PlayerObject* playerObject = playerNumber == 1
-                ? m_player1
-                : m_player2;
+        PlayerObject* playerObject = playerNumber == 1
+            ? m_player1
+            : m_player2;
 
-            if (playerObject) {
-                auto mode = Galactic::detectMode(playerObject);
-                int modeIndex = static_cast<int>(mode);
+        if (playerObject) {
+            auto mode = Galactic::detectMode(playerObject);
+            int modeIndex = static_cast<int>(mode);
 
-                const auto& profile =
-                    Galactic::g_settings.get(playerNumber, mode);
+            const auto& profile =
+                Galactic::g_settings.get(playerNumber, mode);
 
-                Galactic::g_inputBuffer.push(
-                    Galactic::getTimestampMs(),
+            Galactic::g_inputBuffer.push(
+                Galactic::getTimestampMs(),
+                playerNumber,
+                modeIndex,
+                button,
+                profile.ticks,
+                profile.frameWindow,
+                profile.bufferWindowMs,
+                down
+            );
+
+            int slot = playerNumber - 1;
+
+            if (Galactic::g_lastMode[slot] != modeIndex) {
+                Galactic::g_lastMode[slot] = modeIndex;
+
+                log::info(
+                    "GALACTIC: Player {} mode detected: {}",
                     playerNumber,
-                    modeIndex,
-                    button,
+                    Galactic::modeName(mode)
+                );
+
+                log::info(
+                    "GALACTIC: P{} timing: ticks={}, frames={}, window={}ms",
+                    playerNumber,
                     profile.ticks,
                     profile.frameWindow,
                     profile.bufferWindowMs
                 );
+            }
 
-                int slot = playerNumber - 1;
-
-                if (Galactic::g_lastMode[slot] != modeIndex) {
-                    Galactic::g_lastMode[slot] = modeIndex;
-
-                    log::info(
-                        "GALACTIC: Player {} mode detected: {}",
-                        playerNumber,
-                        Galactic::modeName(mode)
-                    );
-
-                    log::info(
-                        "GALACTIC: P{} timing: ticks={}, frames={}, window={}ms",
-                        playerNumber,
-                        profile.ticks,
-                        profile.frameWindow,
-                        profile.bufferWindowMs
-                    );
-                }
-
-                if (!Galactic::g_firstInputLogged) {
-                    Galactic::g_firstInputLogged = true;
-                    log::info("GALACTIC: Input recorded!");
-                }
+            if (!Galactic::g_firstInputLogged) {
+                Galactic::g_firstInputLogged = true;
+                log::info("GALACTIC: Input recorded!");
             }
         }
 
